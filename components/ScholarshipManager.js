@@ -16,7 +16,7 @@ import {
 import { api } from '../lib/api';
 import OpportunityModal from './OpportunityModal';
 
-export default function ScholarshipManager({ onOpenAddModal, defaultType = 'all' }) {
+export default function ScholarshipManager({ onOpenAddModal, defaultType = 'all', onStatsChange }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -31,20 +31,24 @@ export default function ScholarshipManager({ onOpenAddModal, defaultType = 'all'
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [brokenCount, setBrokenCount] = useState(0);
 
   const fetchOpportunities = async () => {
     setLoading(true);
     setError(null);
     try {
       const params = {
-        limit: 50,
+        limit: 500,
+        includeBroken: 'true',
         search: search.trim(),
       };
       if (selectedDegree !== 'ALL') params.degreeLevels = selectedDegree;
       if (selectedFunding !== 'ALL') params.fundingTypes = selectedFunding;
 
       const res = await api.getScholarships(params);
-      let list = res?.data?.scholarships || [];
+      const rawList = res?.data?.scholarships || [];
+      setBrokenCount(rawList.filter((item) => item.linkHealth?.isBroken).length);
+      let list = rawList;
 
       // Filter by classification tab if selected
       if (activeTab === 'internship') {
@@ -61,6 +65,8 @@ export default function ScholarshipManager({ onOpenAddModal, defaultType = 'all'
             !(item.tags || []).includes('internship') &&
             !item.title.toLowerCase().includes('intern')
         );
+      } else if (activeTab === 'broken') {
+        list = list.filter((item) => item.linkHealth?.isBroken);
       }
 
       setItems(list);
@@ -70,6 +76,10 @@ export default function ScholarshipManager({ onOpenAddModal, defaultType = 'all'
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    setActiveTab(defaultType);
+  }, [defaultType]);
 
   useEffect(() => {
     fetchOpportunities();
@@ -155,6 +165,13 @@ export default function ScholarshipManager({ onOpenAddModal, defaultType = 'all'
           className={`btn ${activeTab === 'internship' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
         >
           Internships Only
+        </button>
+        <button
+          onClick={() => setActiveTab('broken')}
+          className={`btn ${activeTab === 'broken' ? 'btn-danger' : 'btn-secondary'} btn-sm`}
+          style={brokenCount > 0 && activeTab !== 'broken' ? { borderColor: '#fecaca', color: '#dc2626', background: '#fef2f2' } : undefined}
+        >
+          Broken / Hidden ({brokenCount})
         </button>
       </div>
 
@@ -249,10 +266,20 @@ export default function ScholarshipManager({ onOpenAddModal, defaultType = 'all'
                   item.title.toLowerCase().includes('intern');
 
                 return (
-                  <tr key={item._id}>
+                  <tr key={item._id} style={item.linkHealth?.isBroken ? { background: '#fef2f2' } : undefined}>
                     <td style={{ maxWidth: '320px' }}>
                       <div style={{ fontWeight: '700', color: '#0f172a', marginBottom: '3px' }}>{item.title}</div>
                       <div style={{ fontSize: '12px', color: '#64748b' }}>{item.provider}</div>
+                      {item.linkHealth?.isBroken && (
+                        <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <span className="badge badge-red" style={{ alignSelf: 'flex-start' }}>
+                            Inaccurate Link (Hidden from App)
+                          </span>
+                          <span style={{ fontSize: '11px', color: '#b91c1c' }}>
+                            {item.linkHealth.brokenReason || 'URL check failed — click Edit to fix link'}
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td>
                       <span className={`badge ${isInternship ? 'badge-amber' : 'badge-blue'}`}>
@@ -347,7 +374,10 @@ export default function ScholarshipManager({ onOpenAddModal, defaultType = 'all'
         }}
         initialData={editingItem}
         defaultType={activeTab === 'internship' ? 'internship' : 'scholarship'}
-        onSaved={fetchOpportunities}
+        onSaved={() => {
+          fetchOpportunities();
+          if (onStatsChange) onStatsChange();
+        }}
       />
     </div>
   );

@@ -99,7 +99,7 @@ export default function AdminDashboardPage() {
           </div>
 
           <div
-            className={`nav-link ${activeTab === 'scholarships' ? 'active' : ''}`}
+            className={`nav-link ${activeTab === 'scholarships' || activeTab === 'broken-scholarships' ? 'active' : ''}`}
             onClick={() => setActiveTab('scholarships')}
           >
             <GraduationCap size={18} />
@@ -174,11 +174,15 @@ export default function AdminDashboardPage() {
           )}
 
           {activeTab === 'scholarships' && (
-            <ScholarshipManager onOpenAddModal={handleOpenAddModal} defaultType="scholarship" />
+            <ScholarshipManager key="scholarships" onOpenAddModal={handleOpenAddModal} defaultType="scholarship" onStatsChange={fetchStats} />
+          )}
+
+          {activeTab === 'broken-scholarships' && (
+            <ScholarshipManager key="broken" onOpenAddModal={handleOpenAddModal} defaultType="broken" onStatsChange={fetchStats} />
           )}
 
           {activeTab === 'internships' && (
-            <ScholarshipManager onOpenAddModal={handleOpenAddModal} defaultType="internship" />
+            <ScholarshipManager key="internships" onOpenAddModal={handleOpenAddModal} defaultType="internship" onStatsChange={fetchStats} />
           )}
 
           {activeTab === 'reviews' && (

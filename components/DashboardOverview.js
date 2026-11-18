@@ -39,6 +39,34 @@ export default function DashboardOverview({ stats, onNavigateTab, onOpenAddModal
         </div>
       </div>
 
+      {/* Broken Links Hidden Alert Banner */}
+      {stats?.brokenLinksCount > 0 && (
+        <div
+          onClick={() => onNavigateTab('broken-scholarships')}
+          style={{
+            cursor: 'pointer',
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '12px',
+            padding: '14px 18px',
+            marginBottom: '22px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            color: '#991b1b',
+            fontSize: '13px',
+            fontWeight: '600',
+          }}
+        >
+          <div>
+            <strong>{stats.brokenLinksCount}</strong> scholarship{stats.brokenLinksCount > 1 ? 's are' : ' is'} temporarily hidden from the student mobile app due to inaccurate or broken official links.
+          </div>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '700' }}>
+            Fix Links <ChevronRight size={15} />
+          </span>
+        </div>
+      )}
+
       {/* Metric Cards */}
       <div className="stat-grid">
         <div className="stat-card">

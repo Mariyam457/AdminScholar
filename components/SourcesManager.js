@@ -19,6 +19,7 @@ export default function SourcesManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [crawlingId, setCrawlingId] = useState(null);
+  const [crawlingAll, setCrawlingAll] = useState(false);
   const [crawlFeedback, setCrawlFeedback] = useState(null);
 
   const fetchSources = async () => {
@@ -43,9 +44,10 @@ export default function SourcesManager() {
     setCrawlFeedback(null);
     try {
       const res = await api.triggerSourceCrawl(id);
+      const d = res?.data || {};
       setCrawlFeedback({
-        type: 'success',
-        message: `Successfully crawled ${name}. Status: 200 OK.`,
+        type: d.brokenLinksHiddenCount > 0 ? 'error' : 'success',
+        message: `Crawled ${name} (HTTP ${d.httpStatus || 200}). Queued diffs: ${d.enqueuedReviewItemsCount || 0}, Broken/Hidden links: ${d.brokenLinksHiddenCount || 0}, Restored links: ${d.restoredLinksCount || 0}.`,
       });
       fetchSources();
     } catch (err) {
@@ -58,19 +60,46 @@ export default function SourcesManager() {
     }
   };
 
+  const handleCrawlAll = async () => {
+    setCrawlingAll(true);
+    setCrawlFeedback(null);
+    try {
+      const res = await api.triggerCrawlAll();
+      const d = res?.data || {};
+      setCrawlFeedback({
+        type: d.totalBroken > 0 ? 'error' : 'success',
+        message: `Full audit complete across ${d.checkedCount || 0} sources in ${d.durationSec || 0}s. Queued changes: ${d.totalEnqueued || 0}, Broken/Hidden from app: ${d.totalBroken || 0}, Restored: ${d.totalRestored || 0}.`,
+      });
+      fetchSources();
+    } catch (err) {
+      setCrawlFeedback({
+        type: 'error',
+        message: `Full crawl audit failed: ${err.message}`,
+      });
+    } finally {
+      setCrawlingAll(false);
+    }
+  };
+
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', gap: '16px', flexWrap: 'wrap' }}>
         <div>
           <h1>Official Governmental Sources Registry</h1>
           <p>
-            The 23 monitored embassy, ministry, and official scholarship bodies crawled periodically by the background worker.
+            The {sources.length || 37} monitored embassy, ministry, and official scholarship bodies crawled periodically by the active monitor.
           </p>
         </div>
-        <button onClick={fetchSources} className="btn btn-secondary">
-          <RefreshCw size={15} />
-          <span>Refresh List</span>
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={handleCrawlAll} className="btn btn-primary" disabled={crawlingAll}>
+            <Activity size={15} />
+            <span>{crawlingAll ? 'Auditing All Links...' : 'Run Full Crawl & Link Audit'}</span>
+          </button>
+          <button onClick={fetchSources} className="btn btn-secondary" disabled={crawlingAll}>
+            <RefreshCw size={15} />
+            <span>Refresh List</span>
+          </button>
+        </div>
       </div>
 
       {crawlFeedback && (

@@ -25,7 +25,7 @@ export default function ReviewQueueManager({ onReviewHandled }) {
     setError(null);
     try {
       const res = await api.getReviews('pending');
-      setReviews(res?.data?.reviews || []);
+      setReviews(res?.data?.items || res?.data?.reviews || []);
     } catch (err) {
       setError(err.message || 'Failed to fetch review queue');
     } finally {

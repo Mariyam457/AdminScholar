@@ -25,7 +25,7 @@ export default function Navbar({ user, stats, onLogout }) {
             }}
           />
           <span style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>
-            Backend API Connected (Port 5000)
+            Vercel Production API Connected
           </span>
         </div>
       </div>

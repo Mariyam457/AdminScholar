@@ -66,6 +66,7 @@ export default function OpportunityModal({ isOpen, onClose, initialData, default
   const [officialUrl, setOfficialUrl] = useState('');
   const [applicationUrl, setApplicationUrl] = useState('');
   const [isFeatured, setIsFeatured] = useState(false);
+  const [forceRestoreLink, setForceRestoreLink] = useState(false);
 
   // Fetch sources for dropdown
   useEffect(() => {
@@ -90,6 +91,7 @@ export default function OpportunityModal({ isOpen, onClose, initialData, default
     if (!isOpen) return;
 
     setError(null);
+    setForceRestoreLink(false);
     if (initialData) {
       setTitle(initialData.title || '');
       setProvider(initialData.provider || '');
@@ -242,6 +244,16 @@ export default function OpportunityModal({ isOpen, onClose, initialData, default
         throw new Error('Please select an Official Source Attribution.');
       }
 
+      const resolvedFields = fieldsArr.length > 0 ? fieldsArr : ['General Studies'];
+      const parsedStipend =
+        stipendProvided && stipendAmount !== '' && !Number.isNaN(Number(stipendAmount))
+          ? Number(stipendAmount)
+          : undefined;
+      const parsedMinGpa =
+        minGpa !== '' && !Number.isNaN(Number(minGpa)) ? Number(minGpa) : undefined;
+      const parsedGpaScale =
+        gpaScale !== '' && !Number.isNaN(Number(gpaScale)) ? Number(gpaScale) : 4.0;
+
       const payload = {
         title: title.trim(),
         provider: provider.trim(),
@@ -249,14 +261,14 @@ export default function OpportunityModal({ isOpen, onClose, initialData, default
         overview: overview.trim(),
         description: description.trim(),
         degreeLevels,
-        fieldsOfStudy: fieldsArr.length > 0 ? fieldsArr : ['General Studies'],
+        fieldsOfStudy: resolvedFields,
         fundingType,
         fundingBreakdown: {
           tuitionCovered,
           tuitionPercentage: tuitionCovered ? 100 : 0,
           livingStipend: {
             provided: stipendProvided,
-            amount: stipendProvided && stipendAmount ? Number(stipendAmount) : undefined,
+            amount: parsedStipend,
             currency: stipendCurrency,
             frequency: 'monthly',
           },
@@ -268,9 +280,11 @@ export default function OpportunityModal({ isOpen, onClose, initialData, default
           booksAllowance: false,
         },
         eligibility: {
-          minGpa: minGpa ? Number(minGpa) : undefined,
-          gpaScale: gpaScale ? Number(gpaScale) : 4.0,
+          minGpa: parsedMinGpa,
+          gpaScale: parsedGpaScale,
           eligibleNationalities: nationalitiesArr.length > 0 ? nationalitiesArr : ['ALL'],
+          degreeLevels,
+          fieldsOfStudy: resolvedFields,
           languageRequirements: [
             {
               test: englishTest,
@@ -285,19 +299,29 @@ export default function OpportunityModal({ isOpen, onClose, initialData, default
           isRolling,
         },
         sourceAttribution: {
-          sourceId: finalSourceId,
+          sourceId: String(finalSourceId),
           sourceName: finalSourceName || 'Official Direct Portal',
-          officialSourceUrl: officialUrl || 'https://scholarbeacon.org',
-          applicationUrl: applicationUrl || officialUrl || 'https://scholarbeacon.org',
+          officialSourceUrl: officialUrl.trim() || 'https://scholarbeacon.org',
+          applicationUrl: applicationUrl.trim() || officialUrl.trim() || 'https://scholarbeacon.org',
           verificationMethod: 'official_portal',
         },
+        ...(initialData?._id && forceRestoreLink
+          ? { linkHealth: { isBroken: false, brokenReason: '' } }
+          : {}),
         isFeatured,
         isActive: true,
         tags: opportunityType === 'internship' ? ['internship', 'training'] : ['scholarship', 'academic'],
       };
 
       if (initialData?._id) {
-        await api.updateScholarship(initialData._id, payload);
+        const res = await api.updateScholarship(initialData._id, payload);
+        if (res?.data?.scholarship?.linkHealth?.isBroken && !forceRestoreLink) {
+          onSaved();
+          setError(
+            `Changes saved, but auto-verification still flagged a broken link (${res.data.scholarship.linkHealth.brokenReason || 'URL failed check'}). Update the failing URL or check "Force mark link as verified" below to restore visibility.`
+          );
+          return;
+        }
       } else {
         await api.createScholarship(payload);
       }
@@ -305,7 +329,11 @@ export default function OpportunityModal({ isOpen, onClose, initialData, default
       onSaved();
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to save opportunity');
+      const detailsText =
+        Array.isArray(err.details) && err.details.length > 0
+          ? ` (${err.details.map((d) => `${d.field}: ${d.message}`).join(', ')})`
+          : '';
+      setError(`${err.message || 'Failed to save opportunity'}${detailsText}`);
     } finally {
       setLoading(false);
     }
@@ -328,6 +356,41 @@ export default function OpportunityModal({ isOpen, onClose, initialData, default
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1 }}>
           <div className="modal-body">
+            {initialData?.linkHealth?.isBroken && (
+              <div
+                style={{
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  color: '#991b1b',
+                  padding: '12px 16px',
+                  borderRadius: '10px',
+                  marginBottom: '18px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  fontSize: '13px',
+                }}
+              >
+                <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+                <div style={{ flex: 1 }}>
+                  <strong>Currently Hidden from Student Mobile App:</strong>{' '}
+                  {initialData.linkHealth.brokenReason || 'The official URL failed verification.'}
+                  {initialData.linkHealth.checkedUrl && (
+                    <div style={{ fontSize: '12px', marginTop: '4px', wordBreak: 'break-all' }}>
+                      <strong>Failing URL:</strong> <code>{initialData.linkHealth.checkedUrl}</code>
+                    </div>
+                  )}
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', cursor: 'pointer', fontWeight: '600' }}>
+                    <input
+                      type="checkbox"
+                      checked={forceRestoreLink}
+                      onChange={(e) => setForceRestoreLink(e.target.checked)}
+                    />
+                    <span>Force mark link as verified &amp; restore to mobile app immediately</span>
+                  </label>
+                </div>
+              </div>
+            )}
             {error && (
               <div
                 style={{

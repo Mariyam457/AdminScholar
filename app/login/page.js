@@ -7,8 +7,8 @@ import { api } from '../../lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('scholar@email.com');
-  const [password, setPassword] = useState('scholar1234');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -89,7 +89,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} autoComplete="off">
           <div className="form-group">
             <label className="form-label">Admin Email Address</label>
             <div style={{ position: 'relative' }}>
@@ -98,7 +98,8 @@ export default function LoginPage() {
                 type="email"
                 className="form-control"
                 style={{ paddingLeft: '36px' }}
-                placeholder="admin@scholarbeacon.org"
+                placeholder="Enter admin email"
+                autoComplete="off"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -114,7 +115,8 @@ export default function LoginPage() {
                 type="password"
                 className="form-control"
                 style={{ paddingLeft: '36px' }}
-                placeholder="••••••••••••"
+                placeholder="Enter password"
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
